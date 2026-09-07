@@ -2,6 +2,7 @@ import json
 import os
 
 import asyncio
+import hashlib
 
 import nats
 from nats.js.api import ConsumerConfig, KeyValueConfig, StreamConfig
@@ -52,16 +53,20 @@ class Queue:
                                     headers={"Nats-Msg-Id": key})
         return dict(seq=ack.seq, duplicate=bool(ack.duplicate))
 
+    @staticmethod
+    def kv_key(key: str) -> str:
+        return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
     async def get_result(self, key: str) -> dict | None:
         try:
-            entry = await self.kv.get(key)
+            entry = await self.kv.get(self.kv_key(key))
         except KeyNotFoundError:
             return None
         return json.loads(entry.value)
 
     async def put_result(self, key: str, value: dict) -> bool:
         try:
-            await self.kv.create(key, json.dumps(value).encode())
+            await self.kv.create(self.kv_key(key), json.dumps(value).encode())
             return True
         except (KeyWrongLastSequenceError, Exception) as exc:
             if isinstance(exc, KeyWrongLastSequenceError) or "wrong last sequence" in str(exc):

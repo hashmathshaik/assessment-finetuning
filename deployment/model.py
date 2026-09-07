@@ -8,7 +8,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 MODEL_DIR = Path(os.environ.get("MODEL_DIR", "artifacts/models/bert-seed42"))
 MAX_LENGTH = int(os.environ.get("MAX_LENGTH", "64"))
-MAX_BATCH = int(os.environ.get("MAX_BATCH", "256"))
+MAX_SENTENCES = int(os.environ.get("MAX_SENTENCES", "256"))
 MAX_CHARS = int(os.environ.get("MAX_CHARS", "2000"))
 
 

@@ -6,7 +6,7 @@ primary_region = "ewr"
 
 [env]
   NATS_URL = "nats://claim-detection-nats.internal:4222"
-  MAX_BATCH = "32"
+  MAX_SENTENCES = "256"
   BATCH_MAX_WAIT_MS = "5"
   TORCH_THREADS = "2"
 

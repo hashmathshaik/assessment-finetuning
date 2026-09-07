@@ -7,12 +7,13 @@ from fastapi import FastAPI, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from deployment.batcher import Batcher
-from deployment.model import MAX_BATCH, MAX_CHARS, Detector
+from deployment.model import MAX_CHARS, MAX_SENTENCES, Detector
 from deployment.queue import SYNC_SUBJECT, Queue
 
 API_KEY = os.environ.get("API_KEY")
 DRAIN_SECONDS = float(os.environ.get("DRAIN_SECONDS", "5"))
 MAX_STREAM_DEPTH = int(os.environ.get("MAX_STREAM_DEPTH", "50000"))
+MAX_KEY_CHARS = int(os.environ.get("MAX_KEY_CHARS", "200"))
 
 state: dict = dict(detector=None, queue=None, batcher=None, ready=False, inflight=0)
 counters = dict(detect=0, jobs=0, replays=0, positive=0, sentences=0, rejected=0)
@@ -47,9 +48,13 @@ def check_key(key: str | None) -> None:
         raise HTTPException(401, "invalid api key")
 
 
-def validate(sentences: list[str]) -> None:
-    if len(sentences) > MAX_BATCH:
-        raise HTTPException(413, f"at most {MAX_BATCH} sentences per request")
+def validate(sentences: list[str], key: str) -> None:
+    if not key.strip():
+        raise HTTPException(400, "Idempotency-Key must not be empty")
+    if len(key) > MAX_KEY_CHARS:
+        raise HTTPException(400, f"Idempotency-Key must be under {MAX_KEY_CHARS} characters")
+    if len(sentences) > MAX_SENTENCES:
+        raise HTTPException(413, f"at most {MAX_SENTENCES} sentences per request")
     if any(len(s) > MAX_CHARS for s in sentences):
         raise HTTPException(413, f"sentences must be under {MAX_CHARS} characters")
 
@@ -58,7 +63,7 @@ def validate(sentences: list[str]) -> None:
 async def detect(req: DetectRequest, idempotency_key: str = Header(...),
                  x_api_key: str | None = Header(None)):
     check_key(x_api_key)
-    validate(req.sentences)
+    validate(req.sentences, idempotency_key)
     q, detector = state["queue"], state["detector"]
 
     cached = await q.get_result(idempotency_key)
@@ -93,7 +98,7 @@ async def detect(req: DetectRequest, idempotency_key: str = Header(...),
 async def submit(req: DetectRequest, response: Response,
                  idempotency_key: str = Header(...), x_api_key: str | None = Header(None)):
     check_key(x_api_key)
-    validate(req.sentences)
+    validate(req.sentences, idempotency_key)
     q = state["queue"]
 
     cached = await q.get_result(idempotency_key)
