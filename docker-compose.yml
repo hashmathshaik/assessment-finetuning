@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: claims
+      POSTGRES_PASSWORD: claims
+      POSTGRES_DB: claims
+    command: ["postgres", "-c", "fsync=on", "-c", "synchronous_commit=on"]
+    volumes:
+      - ./deployment/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U claims"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    ports: ["5432:5432"]
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://claims:claims@db:5432/claims
+    volumes:
+      - ./artifacts/models:/models:ro
+    depends_on:
+      db: {condition: service_healthy}
+    ports: ["8000:8000"]
+
+  worker:
+    build: .
+    command: ["python", "-m", "deployment.worker"]
+    environment:
+      DATABASE_URL: postgresql://claims:claims@db:5432/claims
+    volumes:
+      - ./artifacts/models:/models:ro
+    depends_on:
+      db: {condition: service_healthy}
+    deploy:
+      replicas: 3
+
+volumes:
+  pgdata:
