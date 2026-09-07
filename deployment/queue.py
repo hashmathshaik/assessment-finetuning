@@ -1,6 +1,8 @@
 import json
 import os
 
+import asyncio
+
 import nats
 from nats.js.api import ConsumerConfig, KeyValueConfig, StreamConfig
 from nats.js.errors import KeyNotFoundError, KeyWrongLastSequenceError
@@ -22,8 +24,16 @@ class Queue:
         self.js = None
         self.kv = None
 
-    async def connect(self):
-        self.nc = await nats.connect(NATS_URL, max_reconnect_attempts=-1)
+    async def connect(self, attempts: int = 30, delay: float = 2.0):
+        for i in range(attempts):
+            try:
+                self.nc = await nats.connect(NATS_URL, max_reconnect_attempts=-1)
+                break
+            except Exception as exc:
+                if i == attempts - 1:
+                    raise
+                print(f"nats not reachable ({exc}), retry {i + 1}/{attempts}", flush=True)
+                await asyncio.sleep(delay)
         self.js = self.nc.jetstream()
         await self.js.add_stream(StreamConfig(
             name=STREAM, subjects=[SUBJECT, SYNC_SUBJECT], num_replicas=REPLICAS,

@@ -1,0 +1,18 @@
+app = "claim-detection-worker"
+primary_region = "ewr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NATS_URL = "nats://claim-detection-nats.internal:4222"
+  TORCH_THREADS = "2"
+  WORKER_FETCH = "16"
+
+[processes]
+  worker = "python -m deployment.worker"
+
+[[vm]]
+  size = "performance-1x"
+  memory = "2gb"
+  processes = ["worker"]
