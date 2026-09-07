@@ -33,7 +33,7 @@ def kill_random_worker():
     pid = random.choice(out)
     subprocess.run(["kill", "-9", pid])
     subprocess.Popen(["/bin/sh", "-c",
-                      ".venv/bin/python -m deployment.worker >> logs/worker.log 2>&1 &"])
+                      ".venv/bin/python -m deployment.worker >> logs/worker2.log 2>&1 &"])
     return pid
 
 
