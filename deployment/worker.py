@@ -1,61 +1,39 @@
+import asyncio
+import json
 import os
-import threading
-import time
-import traceback
 
-from deployment import db
 from deployment.model import Detector
+from deployment.queue import Queue
 
-POLL_SECONDS = float(os.environ.get("POLL_SECONDS", "0.5"))
-HEARTBEAT_SECONDS = float(os.environ.get("HEARTBEAT_SECONDS", "15"))
-
-
-def run_job(detector: Detector, payload: dict) -> dict:
-    sentences = payload["sentences"]
-    return dict(results=detector.predict(sentences), n=len(sentences))
+BATCH = int(os.environ.get("WORKER_FETCH", "16"))
+TIMEOUT = float(os.environ.get("WORKER_TIMEOUT", "2"))
 
 
-def run_with_heartbeat(conn, detector: Detector, job: dict) -> tuple[dict | None, str | None]:
-    box: dict = {}
-
-    def work():
-        try:
-            box["result"] = run_job(detector, job["payload"])
-        except Exception:
-            box["error"] = traceback.format_exc()
-
-    thread = threading.Thread(target=work, daemon=True)
-    thread.start()
-
-    while thread.is_alive():
-        thread.join(HEARTBEAT_SECONDS)
-        if thread.is_alive() and not db.heartbeat(conn, job["id"], job["lease_id"]):
-            return None, "lease lost"
-
-    return box.get("result"), box.get("error")
-
-
-def main() -> None:
+async def main() -> None:
     detector = Detector()
-    conn = db.connect()
+    q = await Queue().connect()
+    sub = await q.subscribe()
     print(f"worker up, model {detector.version}", flush=True)
 
     while True:
-        job = db.claim(conn)
-        if job is None:
-            time.sleep(POLL_SECONDS)
+        try:
+            msgs = await sub.fetch(BATCH, timeout=TIMEOUT)
+        except asyncio.TimeoutError:
             continue
 
-        result, error = run_with_heartbeat(conn, detector, job)
+        payloads = [json.loads(m.data) for m in msgs]
+        flat = [s for p in payloads for s in p["sentences"]]
+        results = await asyncio.to_thread(detector.predict, flat)
 
-        if error == "lease lost":
-            print(f"job {job['id']} lease expired mid-flight, dropping", flush=True)
-        elif error:
-            db.fail(conn, job["id"], job["lease_id"], error)
-            print(f"job {job['id']} failed, attempt {job['attempts']}", flush=True)
-        elif not db.succeed(conn, job["id"], job["lease_id"], result, detector.version):
-            print(f"job {job['id']} lease lost at commit, discarding result", flush=True)
+        offset = 0
+        for msg, p in zip(msgs, payloads):
+            chunk = results[offset:offset + len(p["sentences"])]
+            offset += len(p["sentences"])
+            await q.put_result(p["key"], dict(results=chunk,
+                                              model_version=detector.version,
+                                              threshold=detector.threshold))
+            await msg.ack()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
