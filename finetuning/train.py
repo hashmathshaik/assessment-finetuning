@@ -63,6 +63,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=C.SEED)
     ap.add_argument("--max-length", type=int, default=C.HPARAMS["max_length"])
     ap.add_argument("--batch-size", type=int, default=None)
+    ap.add_argument("--exclude-source", default=None,
+                    help="drop a corpus from training, e.g. AVeriTeC")
     ap.add_argument("--dump-only", action="store_true",
                     help="reload the saved model and rewrite the .npz arrays, no training")
     args = ap.parse_args()
@@ -89,10 +91,19 @@ def main() -> None:
     if bad:
         print(f"dropping {bad} row(s) with null text from train")
         train_raw = train_raw.dropna(subset=["text"]).reset_index(drop=True)
+    tag = args.model if not args.exclude_source else f"{args.model}-no{args.exclude_source}"
+    if args.exclude_source:
+        before = len(train_raw)
+        train_raw = D.attach_source(train_raw, D.load_sources())
+        train_raw = train_raw[train_raw["source"] != args.exclude_source]
+        train_raw = train_raw[["text", "label"]].reset_index(drop=True)
+        print(f"excluded {args.exclude_source}: {before} -> {len(train_raw)} rows, "
+              f"{100 * train_raw['label'].mean():.2f}% positive")
+
     fit, val, cal = D.make_splits(train_raw, seed=args.seed)
     print(f"fit={len(fit)}  val={len(val)}  cal={len(cal)}  test={len(test)}  ood={len(ood)}")
 
-    outdir = C.MODELS / f"{args.model}-seed{args.seed}"
+    outdir = C.MODELS / f"{tag}-seed{args.seed}"
     load_from = str(outdir) if args.dump_only else checkpoint
     tok = AutoTokenizer.from_pretrained(load_from)
     model = AutoModelForSequenceClassification.from_pretrained(load_from, num_labels=2).to(device)
@@ -130,18 +141,18 @@ def main() -> None:
     for name, df in [("test", test), ("ood", ood), ("cal", cal), ("val", val)]:
         lg, em = infer(model, tok, df["text"].tolist(), hp["max_length"],
                        hp["eval_batch_size"], device)
-        np.savez_compressed(C.RESULTS / f"{args.model}_{name}.npz",
+        np.savez_compressed(C.RESULTS / f"{tag}_{name}.npz",
                             logits=lg, embeddings=em, labels=df["label"].to_numpy())
-        print(f"wrote {args.model}_{name}.npz  logits={lg.shape} emb={em.shape}")
+        print(f"wrote {tag}_{name}.npz  logits={lg.shape} emb={em.shape}")
 
 
     lg, em = infer(model, tok, fit["text"].tolist(), hp["max_length"],
                    hp["eval_batch_size"], device)
-    np.savez_compressed(C.RESULTS / f"{args.model}_fit.npz",
+    np.savez_compressed(C.RESULTS / f"{tag}_fit.npz",
                         logits=lg, embeddings=em, labels=fit["label"].to_numpy())
 
     (outdir / "run.json").write_text(json.dumps(
-        dict(model=args.model, checkpoint=checkpoint, seed=args.seed, device=device,
+        dict(model=tag, checkpoint=checkpoint, excluded_source=args.exclude_source, seed=args.seed, device=device,
              hparams=hp, minutes=round(mins, 2), final_loss=final_loss,
              n_fit=len(fit), n_val=len(val), n_cal=len(cal),
              log_history=trainer.state.log_history,
