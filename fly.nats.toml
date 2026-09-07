@@ -1,0 +1,23 @@
+app = "claim-detection-nats"
+primary_region = "ewr"
+
+[build]
+  image = "nats:2.10-alpine"
+
+[processes]
+  app = "-js -sd /data -m 8222"
+
+[[mounts]]
+  source = "nats_data"
+  destination = "/data"
+
+[[services]]
+  internal_port = 4222
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
