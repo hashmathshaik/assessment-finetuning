@@ -23,6 +23,19 @@ def enqueue(conn, idempotency_key: str, payload: dict) -> dict:
         return cur.fetchone()
 
 
+def enqueue_inline(conn, idempotency_key: str, payload: dict) -> dict:
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO jobs (idempotency_key, payload, status, attempts,
+                              lease_id, locked_until)
+            VALUES (%s, %s, 'running', 1, gen_random_uuid(),
+                    now() + make_interval(secs => %s))
+            ON CONFLICT (idempotency_key) DO UPDATE SET updated_at = jobs.updated_at
+            RETURNING id, lease_id, status, result, model_version, (xmax = 0) AS inserted
+        """, (idempotency_key, json.dumps(payload), LEASE_SECONDS))
+        return cur.fetchone()
+
+
 def get_job(conn, job_id: int) -> dict | None:
     with conn.cursor() as cur:
         cur.execute("""
@@ -92,3 +105,17 @@ def fail(conn, job_id: int, lease_id: str, error: str) -> bool:
             WHERE id = %s AND lease_id = %s
         """, (error[:2000], job_id, lease_id))
         return cur.rowcount == 1
+
+
+def accounting(conn) -> dict:
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT count(*) AS accepted,
+                   count(*) FILTER (WHERE status IN ('succeeded','dead_letter')) AS terminal,
+                   count(*) FILTER (WHERE status = 'queued') AS queued,
+                   count(*) FILTER (WHERE status = 'running') AS running
+            FROM jobs
+        """)
+        row = cur.fetchone()
+        row["unaccounted"] = row["accepted"] - row["terminal"] - row["queued"] - row["running"]
+        return row

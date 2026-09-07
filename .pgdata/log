@@ -1,0 +1,15 @@
+2026-09-06 22:58:44.743 EDT [1924] LOG:  starting PostgreSQL 16.2 on aarch64-apple-darwin23.5.0, compiled by Apple clang version 15.0.0 (clang-1500.0.40.1), 64-bit
+2026-09-06 22:58:44.743 EDT [1924] LOG:  listening on Unix socket "/Users/darkmaster/Desktop/assessment-finetuning/.pgdata/.s.PGSQL.5432"
+2026-09-06 22:58:44.747 EDT [1927] LOG:  database system was shut down at 2026-09-06 22:58:44 EDT
+2026-09-06 22:58:44.749 EDT [1924] LOG:  database system is ready to accept connections
+2026-09-06 22:58:44.978 EDT [1924] LOG:  received fast shutdown request
+2026-09-06 22:58:44.978 EDT [1924] LOG:  aborting any active transactions
+2026-09-06 22:58:44.978 EDT [1924] LOG:  background worker "logical replication launcher" (PID 1930) exited with exit code 1
+2026-09-06 22:58:44.978 EDT [1925] LOG:  shutting down
+2026-09-06 22:58:44.978 EDT [1925] LOG:  checkpoint starting: shutdown immediate
+2026-09-06 22:58:44.982 EDT [1925] LOG:  checkpoint complete: wrote 65 buffers (0.4%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.002 s, total=0.004 s; sync files=49, longest=0.001 s, average=0.001 s; distance=206 kB, estimate=206 kB; lsn=0/14D6590, redo lsn=0/14D6590
+2026-09-06 22:58:44.983 EDT [1924] LOG:  database system is shut down
+2026-09-06 23:00:06.283 EDT [2054] LOG:  starting PostgreSQL 16.2 on aarch64-apple-darwin23.5.0, compiled by Apple clang version 15.0.0 (clang-1500.0.40.1), 64-bit
+2026-09-06 23:00:06.284 EDT [2054] LOG:  listening on Unix socket "/Users/darkmaster/Desktop/assessment-finetuning/.pgdata/.s.PGSQL.5432"
+2026-09-06 23:00:06.287 EDT [2057] LOG:  database system was shut down at 2026-09-06 22:58:44 EDT
+2026-09-06 23:00:06.290 EDT [2054] LOG:  database system is ready to accept connections

@@ -1,0 +1,1 @@
+/Users/darkmaster/Desktop/assessment-finetuning/.venv/lib/python3.11/site-packages/pgserver/pginstall/bin/postgres "-D" "/Users/darkmaster/Desktop/assessment-finetuning/.pgdata" "-h" "" "-k" "/Users/darkmaster/Desktop/assessment-finetuning/.pgdata"
