@@ -15,6 +15,7 @@ services:
       API_KEY: ${API_KEY:-}
     depends_on:
       nats: {condition: service_healthy}
+    stop_grace_period: 30s
     restart: unless-stopped
 
   api-2: *api
@@ -22,6 +23,9 @@ services:
   worker:
     build: .
     command: ["python", "-m", "deployment.worker"]
+    healthcheck:
+      disable: true
+    stop_grace_period: 30s
     environment:
       NATS_URL: nats://nats:4222
     depends_on:

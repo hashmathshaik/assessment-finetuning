@@ -1,0 +1,13 @@
+.git
+.venv
+.bin
+.natsdata
+.pgdata
+data
+logs
+artifacts/figures
+artifacts/results
+finetuning
+tests
+*.ipynb
+__pycache__

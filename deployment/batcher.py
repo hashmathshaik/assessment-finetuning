@@ -26,6 +26,10 @@ class Batcher:
                 await self.task
             except asyncio.CancelledError:
                 pass
+        while not self.queue.empty():
+            _, future = self.queue.get_nowait()
+            if not future.done():
+                future.set_exception(RuntimeError("server shutting down"))
 
     async def submit(self, sentences: list[str]) -> list[dict]:
         future: asyncio.Future = asyncio.get_running_loop().create_future()

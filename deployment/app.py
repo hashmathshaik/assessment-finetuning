@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from deployment.batcher import Batcher
 from deployment.model import MAX_BATCH, MAX_CHARS, Detector
-from deployment.queue import Queue
+from deployment.queue import SYNC_SUBJECT, Queue
 
 API_KEY = os.environ.get("API_KEY")
 DRAIN_SECONDS = float(os.environ.get("DRAIN_SECONDS", "5"))
@@ -28,8 +28,8 @@ async def lifespan(app: FastAPI):
     state["ready"] = True
     yield
     state["ready"] = False
-    await asyncio.sleep(DRAIN_SECONDS)
-    while state["inflight"] > 0:
+    deadline = time.monotonic() + DRAIN_SECONDS
+    while time.monotonic() < deadline or state["inflight"] > 0:
         await asyncio.sleep(0.05)
     await state["batcher"].stop()
     await state["queue"].close()
@@ -66,15 +66,20 @@ async def detect(req: DetectRequest, idempotency_key: str = Header(...),
         counters["replays"] += 1
         return dict(**cached, replayed=True)
 
-    await q.publish(idempotency_key, dict(sentences=req.sentences, key=idempotency_key))
-
     state["inflight"] += 1
     started = time.perf_counter()
     try:
+        await q.publish(idempotency_key, dict(sentences=req.sentences,
+                                              key=idempotency_key),
+                        subject=SYNC_SUBJECT)
         results = await state["batcher"].submit(req.sentences)
         answer = dict(results=results, model_version=detector.version,
                       threshold=detector.threshold)
-        await q.put_result(idempotency_key, answer)
+        if not await q.put_result(idempotency_key, answer):
+            stored = await q.get_result(idempotency_key)
+            if stored:
+                counters["replays"] += 1
+                return dict(**stored, replayed=True)
     finally:
         state["inflight"] -= 1
 
@@ -90,6 +95,12 @@ async def submit(req: DetectRequest, response: Response,
     check_key(x_api_key)
     validate(req.sentences)
     q = state["queue"]
+
+    cached = await q.get_result(idempotency_key)
+    if cached:
+        counters["replays"] += 1
+        response.status_code = 200
+        return dict(key=idempotency_key, status="succeeded", **cached)
 
     info = await q.stream_info()
     if info["messages"] >= MAX_STREAM_DEPTH:
