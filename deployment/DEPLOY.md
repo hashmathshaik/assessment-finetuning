@@ -103,6 +103,14 @@ against compose containers and not against Fly:
 the README are against uvicorn directly — through nginx you measure the 50 r/s
 per-IP rate limit instead.
 
+## Why there is no deploy workflow
+
+The image needs the 418MB model weights, which are not in git, so a CI job
+building from a checkout has nothing to copy. Deploys are the three `fly deploy`
+commands above, run from a machine that has the weights. Automating it means
+publishing the model somewhere a runner can fetch it — Hugging Face Hub or a
+release asset — which is worth doing but is not done here.
+
 ## Known gap
 
 One nats node is a single point of failure. While it is down the api cannot
