@@ -17,10 +17,15 @@ jobs:
       - name: Lint
         run: |
           pip install pyflakes
-          pyflakes finetuning/*.py deployment/*.py tests/*.py
+          find finetuning deployment tests -name '*.py' -print0 | xargs -0 pyflakes
 
       - name: Compile
         run: python -m compileall -q finetuning deployment tests
+
+      - name: Imports resolve
+        run: |
+          pip install -r requirements-serve.txt
+          python -c "import deployment.app, deployment.worker, deployment.queue, deployment.batcher, deployment.model"
 
       - name: Validate compose
         run: docker compose config --quiet
