@@ -4,7 +4,7 @@ import os
 import traceback
 
 from deployment.model import Detector
-from deployment.queue import SYNC_SUBJECT, Queue
+from deployment.queue import MAX_DELIVER, SYNC_SUBJECT, Queue
 
 FETCH = int(os.environ.get("WORKER_FETCH", "16"))
 TIMEOUT = float(os.environ.get("WORKER_TIMEOUT", "2"))
@@ -23,6 +23,25 @@ async def keep_alive(msgs, stop: asyncio.Event) -> None:
                     await m.in_progress()
                 except Exception:
                     pass
+
+
+async def give_up(q: Queue, msg, payload: dict, error: str) -> bool:
+    """On the final delivery attempt, record the failure and stop redelivering.
+
+    Without this a message that fails max_deliver times is dropped by JetStream
+    with no trace, and /v1/jobs would have returned 202 for work that vanished.
+    """
+    try:
+        delivered = msg.metadata.num_delivered
+    except Exception:
+        return False
+    if delivered < MAX_DELIVER:
+        return False
+    await q.put_result(payload["key"], dict(status="failed", error=error[-1000:],
+                                            attempts=delivered))
+    await msg.term()
+    print(f"job {payload['key']} dead-lettered after {delivered} attempts", flush=True)
+    return True
 
 
 async def handle(q: Queue, detector: Detector, msgs: list) -> None:
@@ -52,9 +71,12 @@ async def handle(q: Queue, detector: Detector, msgs: list) -> None:
         results = await asyncio.to_thread(detector.predict, flat)
     except Exception:
         stop.set(); await beat
-        for m, _ in todo:
+        err = traceback.format_exc()
+        for m, p in todo:
+            if await give_up(q, m, p, err):
+                continue
             await m.nak(delay=5)
-        print(f"inference failed, redelivering {len(todo)}\n{traceback.format_exc()}", flush=True)
+        print(f"inference failed, redelivering {len(todo)}\n{err}", flush=True)
         return
     stop.set(); await beat
 
@@ -67,7 +89,9 @@ async def handle(q: Queue, detector: Detector, msgs: list) -> None:
                                               threshold=detector.threshold))
             await m.ack()
         except Exception:
-            await m.nak(delay=5)
+            err = traceback.format_exc()
+            if not await give_up(q, m, p, err):
+                await m.nak(delay=5)
             print(f"could not store {p['key']}, will retry", flush=True)
 
 
@@ -80,8 +104,13 @@ async def recover(q: Queue, detector: Detector) -> None:
         except asyncio.TimeoutError:
             continue
         except Exception:
+            print(f"recovery fetch failed\n{traceback.format_exc()}", flush=True)
+            await asyncio.sleep(5)
             continue
-        await handle(q, detector, msgs)
+        try:
+            await handle(q, detector, msgs)
+        except Exception:
+            print(f"recovery batch failed\n{traceback.format_exc()}", flush=True)
 
 
 async def main() -> None:

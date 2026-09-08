@@ -2,7 +2,9 @@
 
 ## Local
 
-    python -m finetuning.train --model bert --max-length 64 --epochs 3   # once
+    python -m venv .venv && .venv/bin/pip install -r requirements.txt
+    .venv/bin/python -m finetuning.train --model bert --max-length 64 --epochs 3
+    .venv/bin/python -m finetuning.export
     docker compose up --build
 
 The 418MB weights aren't in git, so the image build needs them at

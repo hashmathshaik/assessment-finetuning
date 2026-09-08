@@ -149,7 +149,7 @@ def ood_separation(in_scores, out_scores, auroc_value: float, name: str = "ood_s
             label="out-of-domain (tweets)")
     ax.set_xlabel("Mahalanobis distance from training data")
     ax.set_ylabel("density")
-    ax.set_title(f"The model cannot tell tweets apart   ·   AUROC {auroc_value:.3f}")
+    ax.set_title(f"Distance from training data   ·   AUROC {auroc_value:.3f}")
     ax.legend(loc="upper right"); ax.grid(axis="y", alpha=.7)
     ax.text(0, -.22, "0.5 means no separation at all", transform=ax.transAxes,
             fontsize=9.5, color="#57606a")

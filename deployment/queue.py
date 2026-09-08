@@ -5,7 +5,8 @@ import asyncio
 import hashlib
 
 import nats
-from nats.js.api import ConsumerConfig, KeyValueConfig, StreamConfig
+from nats.js.api import (ConsumerConfig, KeyValueConfig, RetentionPolicy,
+                         StreamConfig)
 from nats.js.errors import KeyNotFoundError, KeyWrongLastSequenceError
 
 NATS_URL = os.environ.get("NATS_URL", "nats://127.0.0.1:4222")
@@ -17,6 +18,7 @@ REPLICAS = int(os.environ.get("NATS_REPLICAS", "1"))
 DEDUPE_WINDOW_S = int(os.environ.get("DEDUPE_WINDOW_S", "7200"))
 MAX_DELIVER = int(os.environ.get("MAX_DELIVER", "5"))
 ACK_WAIT_S = int(os.environ.get("ACK_WAIT_S", "300"))
+MAX_AGE_S = int(os.environ.get("STREAM_MAX_AGE_S", "86400"))
 
 
 class Queue:
@@ -38,7 +40,8 @@ class Queue:
         self.js = self.nc.jetstream()
         await self.js.add_stream(StreamConfig(
             name=STREAM, subjects=[SUBJECT, SYNC_SUBJECT], num_replicas=REPLICAS,
-            duplicate_window=DEDUPE_WINDOW_S,
+            duplicate_window=DEDUPE_WINDOW_S, max_age=MAX_AGE_S,
+            retention=RetentionPolicy.LIMITS,
         ))
         self.kv = await self.js.create_key_value(KeyValueConfig(
             bucket=KV_BUCKET, replicas=REPLICAS))
@@ -77,6 +80,13 @@ class Queue:
         info = await self.js.stream_info(STREAM)
         return dict(messages=info.state.messages, bytes=info.state.bytes,
                     consumers=info.state.consumer_count)
+
+    async def backlog(self) -> int:
+        try:
+            info = await self.js.consumer_info(STREAM, "workers")
+            return int(info.num_pending + info.num_ack_pending)
+        except Exception:
+            return 0
 
     async def subscribe(self, durable: str = "workers", subject: str = SUBJECT,
                         ack_wait: int = ACK_WAIT_S):

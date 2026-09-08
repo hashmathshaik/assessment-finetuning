@@ -141,17 +141,13 @@ the rate limiter rather than the service.
 
 ```bash
 python -m finetuning.train --model bert --max-length 64 --epochs 3   # once, ~69 min
+python -m finetuning.export                                          # writes serving.json
 docker compose up --build
 ```
 
 The model weights are 418MB and aren't in git, so the build needs them present
 at `artifacts/models/bert-seed42/`. Train once and they're there. To skip that,
 hit the live URL above — it has them baked into the image.
-
-```bash
-python -m finetuning.train --model bert --max-length 64 --epochs 3
-python -m finetuning.export
-```
 
 Training dumps logits and embeddings per split, so analysis never costs a
 retrain. Notebooks: `01_train` for data and training, `02_analysis` for

@@ -117,8 +117,7 @@ async def submit(req: DetectRequest, response: Response,
         response.status_code = 200
         return dict(key=idempotency_key, status="succeeded", **cached)
 
-    info = await q.stream_info()
-    if info["messages"] >= MAX_STREAM_DEPTH:
+    if await q.backlog() >= MAX_STREAM_DEPTH:
         counters["rejected"] += 1
         raise HTTPException(429, "queue full", headers={"Retry-After": "5"})
 
@@ -138,6 +137,8 @@ async def job_status(key: str, x_api_key: str | None = Header(None)):
     result = await state["queue"].get_result(key)
     if result is None:
         return dict(key=key, status="pending")
+    if result.get("status") == "failed":
+        return dict(key=key, **result)
     return dict(key=key, status="succeeded", **result)
 
 
@@ -173,6 +174,7 @@ async def metrics():
         f"claim_batch_avg_size {avg:.2f}",
         f"claim_batch_max_size {b['max_seen']}",
         f"claim_stream_messages {info['messages']}",
+        f"claim_stream_backlog {await state['queue'].backlog()}",
         f"claim_stream_consumers {info['consumers']}",
     ]
     return Response("\n".join(lines) + "\n", media_type="text/plain")
