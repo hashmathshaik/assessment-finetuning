@@ -1,5 +1,6 @@
 app = "claim-detection"
 primary_region = "ewr"
+kill_timeout = "30s"
 
 [build]
   dockerfile = "Dockerfile"
