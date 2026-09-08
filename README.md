@@ -21,7 +21,7 @@ BERT-base fine-tuned on 12,997 labelled sentences. 25 minutes on an M1, no GPU.
 | | accuracy | F1 |
 |---|---|---|
 | TF-IDF + logistic regression | 0.849 | 0.835 |
-| **BERT-base fine-tuned** | **0.911** | **0.901** |
+| **BERT-base fine-tuned** | **0.909** | **0.900** |
 
 ## It collapses out of domain
 
@@ -38,7 +38,7 @@ reason.
 **The threshold helps, but nowhere near enough.** Sweeping it on calibrated
 probabilities takes accuracy from 0.630 to 0.716 — but only at 0.95, where you
 are demanding near-certainty, recall drops to 0.897 and it still calls 78% of
-tweets a claim. F1 moves 0.773 → 0.799. Against 0.911 in domain, that is not a
+tweets a claim. F1 moves 0.773 → 0.799. Against 0.909 in domain, that is not a
 fix, and the operating point it needs is one you would never actually ship.
 
 ![threshold](artifacts/figures/ood_threshold_sweep.png)
@@ -78,11 +78,16 @@ that's ~1.5 SE — suggestive, not significant. It also shifts the positive rate
 | temperature (T=1.45) | 0.039 | 0.911 |
 | isotonic | 0.021 | 0.909 |
 
+Accuracy in this table is at threshold 0.5, which is where temperature provably
+changes nothing. The shipped threshold is 0.35, chosen on validation, which is
+why the headline table reads 0.909.
+
 Temperature divides both logits by the same number, so it can't flip a
 prediction — accuracy is identical. It makes the number honest, not the model
 better. The API serves the calibrated probability.
 
-**On tweets ECE is 0.34**: it claims 98% confidence and is right 64% of the time.
+**On tweets ECE is 0.31**: even after calibration it claims 95% confidence and is
+right 64% of the time. Uncalibrated it was 0.34.
 
 ## Serving
 
