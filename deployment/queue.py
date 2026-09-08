@@ -7,7 +7,8 @@ import hashlib
 import nats
 from nats.js.api import (ConsumerConfig, KeyValueConfig, RetentionPolicy,
                          StreamConfig)
-from nats.js.errors import KeyNotFoundError, KeyWrongLastSequenceError
+from nats.js.errors import (BadRequestError, KeyNotFoundError,
+                            KeyWrongLastSequenceError)
 
 NATS_URL = os.environ.get("NATS_URL", "nats://127.0.0.1:4222")
 STREAM = "CLAIMS"
@@ -38,13 +39,23 @@ class Queue:
                 print(f"nats not reachable ({exc}), retry {i + 1}/{attempts}", flush=True)
                 await asyncio.sleep(delay)
         self.js = self.nc.jetstream()
-        await self.js.add_stream(StreamConfig(
+        cfg = StreamConfig(
             name=STREAM, subjects=[SUBJECT, SYNC_SUBJECT], num_replicas=REPLICAS,
             duplicate_window=DEDUPE_WINDOW_S, max_age=MAX_AGE_S,
             retention=RetentionPolicy.LIMITS,
-        ))
-        self.kv = await self.js.create_key_value(KeyValueConfig(
-            bucket=KV_BUCKET, replicas=REPLICAS))
+        )
+        try:
+            await self.js.add_stream(cfg)
+        except BadRequestError:
+            # Stream exists with a different config. Adding is not idempotent, so
+            # reconcile instead of refusing to start - otherwise any config change
+            # bricks every deploy until someone deletes the stream by hand.
+            await self.js.update_stream(cfg)
+        try:
+            self.kv = await self.js.create_key_value(
+                KeyValueConfig(bucket=KV_BUCKET, replicas=REPLICAS))
+        except BadRequestError:
+            self.kv = await self.js.key_value(KV_BUCKET)
         return self
 
     async def close(self):
