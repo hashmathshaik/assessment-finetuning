@@ -116,22 +116,26 @@ def threshold_sweep(sweep, baseline: "float | None" = None, name: str = "thresho
 
 
 def by_source_bars(df, metric: str = "accuracy", name: str = "by_source", note: str = ""):
-    sub = df.drop(index="ALL", errors="ignore")
-    fig, ax = plt.subplots(figsize=(7, 4))
-    bars = ax.bar(sub.index, sub[metric], color=[BLUE, ORANGE, GREEN][:len(sub)],
-                  width=.6, zorder=3)
+    sub = df.drop(index="ALL", errors="ignore").sort_values(metric)
+    fig, ax = plt.subplots(figsize=(8.2, 3.4))
+    colors = [ORANGE if i == "AVeriTeC" else BLUE for i in sub.index]
+    ax.barh(sub.index, sub[metric], color=colors, height=.6, zorder=3)
+    for i, (src, v) in enumerate(sub[metric].items()):
+        ax.text(v + .012, i, f"{v:.3f}", va="center", fontsize=11)
+        if src == "AVeriTeC":
+            ax.text(v / 2, i, "every row is positive, so precision is 1.0 for free",
+                    va="center", ha="center", fontsize=9.5, color="white")
     if "ALL" in df.index:
-        ax.axhline(df.loc["ALL", metric], color=RED, ls="--", lw=1.5,
-                   label=f"pooled ({df.loc['ALL', metric]:.3f})")
-        ax.legend(loc="lower right")
-    for b, v in zip(bars, sub[metric]):
-        ax.text(b.get_x() + b.get_width() / 2, v + .015, f"{v:.3f}",
-                ha="center", fontsize=10.5)
-    ax.set_ylim(0, 1.14); ax.set_ylabel(metric)
+        pooled = df.loc["ALL", metric]
+        ax.axvline(pooled, color=RED, ls="--", lw=1.5, zorder=4)
+        ax.text(pooled, len(sub) - .35, f"  pooled {pooled:.3f}", color=RED,
+                fontsize=9.5, va="bottom")
+    ax.set_xlim(0, 1.12)
+    ax.set_xlabel(metric)
     ax.set_title(f"{metric} by source corpus")
+    ax.grid(axis="x", alpha=.7, zorder=0)
     if note:
-        ax.text(0, -.22, note, transform=ax.transAxes, fontsize=9.5, color="#57606a")
-    ax.grid(axis="y", alpha=.7, zorder=0)
+        fig.text(0.01, -0.06, note, fontsize=9.5, color="#57606a")
     return _save(fig, name)
 
 
