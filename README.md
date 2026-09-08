@@ -76,10 +76,18 @@ better. The API serves the calibrated probability.
 
 ## Serving
 
-```
-client → nginx → api ×2 ── publish ──→ NATS ──→ worker ×2
-                    │                              │
-                run model                      results
+```mermaid
+flowchart LR
+  C([client]) --> NG[nginx]
+  NG --> A1[api 1]
+  NG --> A2[api 2]
+  A1 -- publish --> NJ[(NATS<br/>stream + KV)]
+  A2 -- publish --> NJ
+  A1 -. runs model inline .-> A1
+  NJ --> W1[worker 1]
+  NJ --> W2[worker 2]
+  W1 -- result --> NJ
+  W2 -- result --> NJ
 ```
 
 `/v1/detect` answers inline in ~40ms. `/v1/jobs` returns a ticket for work that
