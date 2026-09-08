@@ -2,7 +2,11 @@
 
 ## Local
 
+    python -m finetuning.train --model bert --max-length 64 --epochs 3   # once
     docker compose up --build
+
+The 418MB weights aren't in git, so the image build needs them at
+`artifacts/models/bert-seed42/` first.
 
 nginx on :8080, two api replicas, two workers, one nats node with JetStream on a
 named volume.
@@ -40,11 +44,15 @@ still answers, because the api runs the model itself on that path.
     fly apps create claim-detection-worker
     fly deploy --config fly.worker.toml --app claim-detection-worker
 
-Both api and worker run the same image with a different command, so they can't
-drift onto different model versions.
+Both build from the same Dockerfile with a different command, so a single build
+can't produce two different model versions. They are still two separate `fly
+deploy` calls though, and the GitHub workflow only deploys the api — deploy both
+after retraining or they will drift.
 
-The api reaches nats over Fly's private network at
-`claim-detection-nats.internal:4222`, so the broker has no public listener.
+The api reaches nats at `claim-detection-nats.internal:4222` over Fly's private
+network. `fly.nats.toml` deliberately has no `[[services]]` block — that is the
+public-edge construct, and adding one would have flyctl allocate a public IP for
+an unauthenticated broker.
 
 ## Scaling
 
@@ -69,9 +77,19 @@ Traffic moves to the remaining machine. Nothing is dropped.
     python tests/chaos.py -n 500 --kill-every 4
     python tests/load.py --concurrency 32 --requests 240
 
-`chaos.py` submits jobs while killing workers at random and checks every
-accepted key reaches a terminal state. It expects the api on localhost:8080 and
-workers started from this repo, so run it against docker compose rather than Fly.
+`chaos.py` submits jobs while killing workers at random and checks every accepted
+key reaches a terminal state. It kills and restarts host processes via `pgrep -f
+deployment.worker`, so run it against services started directly on the host, not
+against compose containers and not against Fly:
+
+    .bin/nats-server -js -sd .natsdata -p 4222 &
+    .venv/bin/uvicorn deployment.app:app --port 8080 &
+    .venv/bin/python -m deployment.worker &
+    .venv/bin/python -m deployment.worker &
+
+`load.py` reports throughput against whatever it is pointed at. The numbers in
+the README are against uvicorn directly — through nginx you measure the 50 r/s
+per-IP rate limit instead.
 
 ## Known gap
 

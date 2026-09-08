@@ -16,7 +16,9 @@ curl -X POST https://claim-detection.fly.dev/v1/detect \
 
 ## Results
 
-BERT-base fine-tuned on 12,997 labelled sentences. 25 minutes on an M1, no GPU.
+BERT-base fine-tuned on a 12,997-sentence corpus — 8,316 rows used for fitting,
+the rest held out for validation, calibration and test. 69 minutes on a MacBook
+Air using Apple's MPS backend. No CUDA, no cloud GPU, no rented hardware.
 
 | | accuracy | F1 |
 |---|---|---|
@@ -93,7 +95,7 @@ right 64% of the time. Uncalibrated it was 0.34.
 
 ![architecture](artifacts/figures/architecture.svg)
 
-`/v1/detect` answers inline in ~40ms. `/v1/jobs` returns a ticket for work that
+`/v1/detect` answers inline — 52ms p50 locally, 90–180ms on Fly. `/v1/jobs` returns a ticket for work that
 outlives an HTTP connection.
 
 **Both publish to NATS before running the model.** That ordering is the whole
@@ -104,9 +106,16 @@ The claim is narrower than "nothing is ever lost": *once we return a status
 code, the work is durable.* Before that the client owns the retry, which is why
 the idempotency key is client-generated.
 
-No leases or heartbeats — a worker holds an unacked message over a live
-connection, and if it dies the socket closes and NATS redelivers. Results go in
-a KV bucket keyed by the idempotency key, so a retry returns the stored answer.
+**Crash recovery is free, hangs still cost you a timeout.** A worker holding an
+unacked message over a live connection gets its work redelivered the moment that
+connection drops — no code, no configuration. A worker that hangs while still
+connected is a different problem, and NATS answers it the same way everything
+does: `ack_wait` (300s here) plus `in_progress()` heartbeats every 20s so a
+legitimately long batch keeps its claim. So the broker removes the crash case,
+not the timeout you have to pick. Doing this in Postgres means writing both.
+
+Results go in a KV bucket keyed by the idempotency key, so a retry returns the
+stored answer.
 
 Requests arriving within 5ms are batched into one forward pass.
 
@@ -120,13 +129,20 @@ c=32   100 req/s   p50 301ms   ← knee
 c=64   108 req/s   p50 490ms
 ```
 
-Zero errors at every level.
+Zero errors at every level. Measured against uvicorn directly, not through
+nginx — nginx caps a single IP at 50 r/s, so a load test pointed at it measures
+the rate limiter rather than the service.
 
 ## Running it
 
 ```bash
+python -m finetuning.train --model bert --max-length 64 --epochs 3   # once, ~69 min
 docker compose up --build
 ```
+
+The model weights are 418MB and aren't in git, so the build needs them present
+at `artifacts/models/bert-seed42/`. Train once and they're there. To skip that,
+hit the live URL above — it has them baked into the image.
 
 ```bash
 python -m finetuning.train --model bert --max-length 64 --epochs 3

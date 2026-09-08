@@ -2,7 +2,6 @@
 .venv
 .bin
 .natsdata
-.pgdata
 data
 logs
 artifacts/figures

@@ -10,7 +10,12 @@ COPY requirements-serve.txt .
 RUN pip install --no-cache-dir -r requirements-serve.txt
 
 COPY deployment/ deployment/
+
+# Weights are 418MB and not in git. Train once before building:
+#   python -m finetuning.train --model bert --max-length 64 --epochs 3
 COPY artifacts/models/bert-seed42/ artifacts/models/bert-seed42/
+RUN test -f artifacts/models/bert-seed42/serving.json \
+    || (echo "missing model weights - run finetuning.train first" && exit 1)
 
 RUN useradd --create-home --uid 10001 app && chown -R app:app /app
 USER app
