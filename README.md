@@ -119,6 +119,10 @@ stored answer.
 
 Requests arriving within 5ms are batched into one forward pass.
 
+The deployed endpoint is open on purpose — `ALLOW_ANONYMOUS=1` in `fly.toml` so
+the curl above works. The service refuses to start if neither that nor `API_KEY`
+is set, so auth can't end up disabled by accident.
+
 ### Measured
 
 Killing workers mid-flight: **500 accepted, 500 completed, 0 lost.**

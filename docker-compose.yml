@@ -13,6 +13,7 @@ services:
     environment:
       NATS_URL: nats://nats:4222
       API_KEY: ${API_KEY:-}
+      ALLOW_ANONYMOUS: ${ALLOW_ANONYMOUS:-1}
     depends_on:
       nats: {condition: service_healthy}
     stop_grace_period: 30s

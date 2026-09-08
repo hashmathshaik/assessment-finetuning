@@ -9,6 +9,9 @@ primary_region = "ewr"
   MAX_SENTENCES = "256"
   BATCH_MAX_WAIT_MS = "5"
   TORCH_THREADS = "2"
+  # This is a public demo endpoint. Set a real API_KEY secret and remove this
+  # to require auth: fly secrets set API_KEY=... --app claim-detection
+  ALLOW_ANONYMOUS = "1"
 
 [http_service]
   internal_port = 8080

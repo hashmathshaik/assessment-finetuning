@@ -33,8 +33,18 @@ stream, and the worker is separate so it can scale independently of the api.
 ### api
 
     fly apps create claim-detection
-    fly secrets set API_KEY=... --app claim-detection      # optional
+    fly secrets set API_KEY=... --app claim-detection
     fly deploy
+
+### Authentication
+
+The service refuses to start with auth silently disabled. Either set `API_KEY`,
+or set `ALLOW_ANONYMOUS=1` to serve openly on purpose. `fly.toml` sets
+`ALLOW_ANONYMOUS=1` because this is a public demo endpoint — drop that line and
+set the secret to lock it down.
+
+Keys are compared with `hmac.compare_digest`, not `==`, so a wrong key takes the
+same time to reject regardless of how much of it is right.
 
 ### worker
 

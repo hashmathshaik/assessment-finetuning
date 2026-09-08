@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import hmac
 import os
 import time
 
@@ -11,6 +12,7 @@ from deployment.model import MAX_CHARS, MAX_SENTENCES, Detector
 from deployment.queue import SYNC_SUBJECT, Queue
 
 API_KEY = os.environ.get("API_KEY")
+ALLOW_ANONYMOUS = os.environ.get("ALLOW_ANONYMOUS", "").lower() in ("1", "true", "yes")
 DRAIN_SECONDS = float(os.environ.get("DRAIN_SECONDS", "5"))
 MAX_STREAM_DEPTH = int(os.environ.get("MAX_STREAM_DEPTH", "50000"))
 MAX_KEY_CHARS = int(os.environ.get("MAX_KEY_CHARS", "200"))
@@ -21,6 +23,12 @@ counters = dict(detect=0, jobs=0, replays=0, positive=0, sentences=0, rejected=0
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
+    if not API_KEY and not ALLOW_ANONYMOUS:
+        raise RuntimeError(
+            "API_KEY is not set. Set it, or set ALLOW_ANONYMOUS=1 to serve without auth. "
+            "Refusing to start with auth silently disabled.")
+    if ALLOW_ANONYMOUS:
+        print("WARNING: serving without authentication (ALLOW_ANONYMOUS)", flush=True)
     state["detector"] = Detector()
     state["queue"] = await Queue().connect()
     state["batcher"] = Batcher(state["detector"].predict)
@@ -44,7 +52,9 @@ class DetectRequest(BaseModel):
 
 
 def check_key(key: str | None) -> None:
-    if API_KEY and key != API_KEY:
+    if ALLOW_ANONYMOUS:
+        return
+    if not key or not hmac.compare_digest(key, API_KEY):
         raise HTTPException(401, "invalid api key")
 
 
