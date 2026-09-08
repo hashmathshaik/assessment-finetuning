@@ -46,8 +46,16 @@ fix, and the operating point it needs is one you would never actually ship.
 ![threshold](artifacts/figures/ood_threshold_sweep.png)
 
 **Not unfamiliar text.** Mahalanobis distance over the embeddings gives AUROC
-**0.47** — worse than chance. The model doesn't find tweets strange, which is
+**0.55** — barely above chance. The model doesn't find tweets strange, which is
 why nothing internal flags the failure.
+
+That number needed care. Tweets are much longer than the training data — median
+67 tokens against 21, and 56% exceed the `max_length=64` the model serves at,
+against 2% of the test set. Measured at serving length AUROC reads 0.47, which
+looks like *worse* than chance; that gap is truncation, not signal. Re-running
+the tweets at full length gives 0.55, and classification is **identical** at 64,
+128 and 256 tokens — accuracy 0.6378, F1 0.7761 throughout. So the collapse is
+not a truncation artifact, but the detector's number was.
 
 ![ood](artifacts/figures/ood_separation.png)
 
