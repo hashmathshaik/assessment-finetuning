@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" width="880" height="300" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8b949e"/>
+    </marker>
+  </defs>
+  <style>
+    .box  { fill:#ffffff; stroke:#8b949e; stroke-width:1.5; rx:6; }
+    .lbl  { fill:#1f2328; font-size:14px; text-anchor:middle; }
+    .sub  { fill:#57606a; font-size:11px; text-anchor:middle; }
+    .edge { stroke:#8b949e; stroke-width:1.5; fill:none; marker-end:url(#a); }
+    .etxt { fill:#57606a; font-size:11px; text-anchor:middle; }
+  </style>
+
+  <rect class="box" x="20"  y="120" width="90"  height="46"/>
+  <text class="lbl" x="65"  y="148">client</text>
+
+  <rect class="box" x="160" y="120" width="90"  height="46"/>
+  <text class="lbl" x="205" y="148">nginx</text>
+
+  <rect class="box" x="300" y="70"  width="110" height="46"/>
+  <text class="lbl" x="355" y="98">api 1</text>
+  <rect class="box" x="300" y="170" width="110" height="46"/>
+  <text class="lbl" x="355" y="198">api 2</text>
+  <text class="sub" x="355" y="238">run the model inline</text>
+  <text class="sub" x="355" y="252">for /v1/detect</text>
+
+  <rect class="box" x="480" y="110" width="130" height="66"/>
+  <text class="lbl" x="545" y="138">NATS</text>
+  <text class="sub" x="545" y="158">stream + KV</text>
+
+  <rect class="box" x="690" y="70"  width="110" height="46"/>
+  <text class="lbl" x="745" y="98">worker 1</text>
+  <rect class="box" x="690" y="170" width="110" height="46"/>
+  <text class="lbl" x="745" y="198">worker 2</text>
+
+  <path class="edge" d="M110,143 L155,143"/>
+  <path class="edge" d="M250,138 L260,138 L260,93 L295,93"/>
+  <path class="edge" d="M250,148 L260,148 L260,193 L295,193"/>
+
+  <path class="edge" d="M410,93  L445,93  L445,130 L475,130"/>
+  <path class="edge" d="M410,193 L445,193 L445,156 L475,156"/>
+  <text class="etxt" x="447" y="80">publish first</text>
+
+  <path class="edge" d="M610,130 L650,130 L650,93 L685,93"/>
+  <path class="edge" d="M610,156 L650,156 L650,193 L685,193"/>
+
+  <path class="edge" d="M745,216 L745,270 L545,270 L545,180"/>
+  <text class="etxt" x="645" y="286">results written back to KV</text>
+</svg>
