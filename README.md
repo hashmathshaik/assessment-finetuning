@@ -35,7 +35,11 @@ constant. F1 hides it, because recall going to 1.0 props F1 up while precision
 falls to the base rate. Every table here carries an all-positive row for that
 reason.
 
-**Not the threshold.** Sweeping 0.05 → 0.95 moves accuracy 0.4 points.
+**The threshold helps, but nowhere near enough.** Sweeping it on calibrated
+probabilities takes accuracy from 0.630 to 0.716 — but only at 0.95, where you
+are demanding near-certainty, recall drops to 0.897 and it still calls 78% of
+tweets a claim. F1 moves 0.773 → 0.799. Against 0.911 in domain, that is not a
+fix, and the operating point it needs is one you would never actually ship.
 
 ![threshold](artifacts/figures/ood_threshold_sweep.png)
 
@@ -52,6 +56,12 @@ entangled. The released splits are `text,label` only, so this isn't visible —
 12,996 of 12,997.
 
 ![by source](artifacts/figures/by_source_f1.png)
+
+Read that AVeriTeC bar carefully: it has no negative rows, so precision is 1.0
+for any model that predicts positive at all, and F1 is inflated by construction.
+The comparison that means something is Claimbuster 0.825 against PoliClaim 0.778
+— and that the ablated model still scores 0.937 accuracy on AVeriTeC having
+never trained on it.
 
 The TF-IDF baseline collapses identically, which rules out the architecture.
 
